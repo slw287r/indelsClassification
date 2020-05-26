@@ -1,5 +1,53 @@
-indelsClassification <- function(mat, classColumn=NULL, subClassColumn=NULL, repeatsColumns=NULL, title="Classification of small indels", subtitle=FALSE, yScale="percentage"){
-  
+#!/usr/bin/env Rscript
+# https://github.com/ferrannadeu/indelsClassification
+name<-sub(".*/","",sub("--file=","",commandArgs()[grep("--file=", commandArgs())]))
+### check optparse
+chk.pkg<-function(x){
+  for(i in x){
+    if(!(i %in% rownames(installed.packages()))) {
+      stop(paste("Packge `", i, "' required\nPlease refer to https://CRAN.R-project.org/package=", i, "\n or http://bioconductor.org/packages/release/bioc/html/", i, ".html\n", sep=""));
+    }
+    suppressPackageStartupMessages(library(i, character.only=T))
+  }
+}
+
+required.packages<-c(
+  "optparse",
+  "GenomicRanges",
+  "BSgenome",
+  "BSgenome.Hsapiens.UCSC.hg19",
+  "Rsamtools")
+chk.pkg(required.packages)
+
+option_list=list(
+  make_option(c("-i", "--input"), type="character", default=NULL, help="input tsv or vcf\n\t\ttsv: chr pos ref alt\n\t\tbcftools required for vcf input", metavar="string"),
+  make_option(c("-o", "--output"), type="character", default=NULL, help="output prefix", metavar="string"),
+  make_option(c("-a", "--anno"), type="character", default=NULL, help="annotation string on plot", metavar="string")
+);
+
+opt_parser<-OptionParser(
+  option_list=option_list,
+  prog=name,
+  description="\nWrapper of indelsClassification with vcf support",
+  epilogue="Reference https://github.com/ferrannadeu/indelsClassification\n");
+
+opt=parse_args(opt_parser);
+
+if (is.null(opt$output) | is.null(opt$input)){
+    print_help(opt_parser);
+    stop("Required arguments not specified", call.=F);
+}
+
+############################################ indelsClassification ################################
+indelsClassification <- function(
+  mat,
+  classColumn=NULL,
+  subClassColumn=NULL,
+  repeatsColumns=NULL,
+  title=NA,
+  subtitle=FALSE,
+  annotation=NULL,
+  yScale="percentage"){
   if(is.null(classColumn) | is.null(subClassColumn) | is.null(repeatsColumns)){
     if(nrow(mat) > 0) {
       mat <- mat[,1:4]
@@ -224,46 +272,66 @@ indelsClassification <- function(mat, classColumn=NULL, subClassColumn=NULL, rep
     dev.control(displaylist="enable")
     
     par(mar=c(4.1,1.1,4.1,0.1))
-    mp <- barplot(classes$counts, 
+    opar <- par(lwd = 0.3)
+    mp <- barplot(classes$counts,
                   las=1, axes=F,
-                  col = cls, space=0.75)
-    title(main=tit, line = 3, adj=0, cex.main=0.8)
-    title(sub=subtit, cex.sub=0.7, line=2.35, adj=0)
-    axis(2, line = -2, las=2, cex.axis=0.6)
-    mtext(yLab, side = 2, line = 0.25, cex=0.66)
-    axis(1, tick = F, at = as.vector(mp), labels = c(as.character(classes$repeats)[1:83], ""), cex.axis=0.55, line = -0.5)
+                  col = cls, space=0.15)
+    title(main="Classification of small indels", line = 3.25, adj=0, cex.main=0.8)
+    title(sub=subtit, cex.sub=0.75, line=3, adj=0)
+    if (!is.null(annotation)) {
+        text(x=0, y=max(classes$counts)*0.98, labels=annotation, adj=0, cex=.75)
+    }
+    axis(2, line = -2, las=2, cex.axis=.75, lwd=.5)
+    mtext(yLab, side = 2, line = 0.25, cex=0.95)
+    axis(1, tick=F, at = as.vector(mp), labels = c(as.character(classes$repeats)[1:83], ""), cex.axis=.6, line = -.25)
     rect(xleft = as.vector(mp)[c(seq(1,67,6), 73, 74, 76, 79, 84)]-0.5, 
          ybottom = rep(0-max(classes$counts)*0.05,17), 
          xright = as.vector(mp)[c(seq(6,72,6), 73, 75, 78, 83, 84)]+0.5,
          ytop =  rep(0-max(classes$counts)*0.02,17), 
-         col = unique(cls), xpd=T)
+         col = unique(cls), xpd=T, lwd=.5)
     rect(xleft = as.vector(mp)[c(seq(1,67,6), 73, 74, 76, 79, 84)]-0.5, 
          ybottom = rep(max(classes$counts)*1.035,17), 
          xright = as.vector(mp)[c(seq(6,72,6), 73, 75, 78, 83, 84)]+0.5, 
          ytop =  rep(max(classes$counts)*1.085,17), 
-         col = unique(cls), xpd=T)
+         col = unique(cls), xpd=T, lwd=.5)
     text(x = c((as.vector(mp)[1:83]+(as.vector(mp)[2:84]- as.vector(mp)[1:83])/2)[seq(3,73,6)],
                as.vector(mp)[73], as.vector(mp)[74]+0.875, as.vector(mp)[c(77, 81)]),
          y=max(classes$counts)*1.06, 
-         c("C", "T", "C", "T", rep(c(2:4, "5+"),3)), xpd=T, cex = 0.6)
+         c("C", "T", "C", "T", rep(c(2:4, expression("">=5)),3)), col=rep(c(rep("black", 3), "white"), 4), xpd=T, cex = 0.75)
     text(x=c((as.vector(mp)[1:83]+(as.vector(mp)[2:84]- as.vector(mp)[1:83])/2)[c(6,18,36,60)],
              as.vector(mp)[c(78, 84)]),
-         y=max(classes$counts)*1.15, 
+         y=max(classes$counts)*1.125, 
          c("1bp deletion", "1bp insertion", ">1bp deletion at repeats\n(deletion length)", 
            ">1bp insertion at repeats\n(insertion length)", 
-           "Deletion with microhomology\n(deletion length)", "Complex\nindels"),
-         xpd=T, cex = 0.64)
+           "Deletion w/ microhomology\n(deletion length)", "Complex\nindels"),
+         xpd=T, cex = 0.75)
     text(x=c((as.vector(mp)[1:83]+(as.vector(mp)[2:84]- as.vector(mp)[1:83])/2)[c(6,18,36,60)],
              as.vector(mp)[78]),
-         y=0-max(classes$counts)*0.16, 
+         y=0-max(classes$counts)*0.125, 
          c("Homopolymer length", "Homopolymer length", "Number of repeat units", 
            "Number of repeat units", "Microhomology length"),
-         xpd=T, cex = 0.62)
+         xpd=T, cex = 0.95)
     
     p <- recordPlot()
     invisible(dev.off())
   }
-  
   else{ p <- NULL }
   return(list(mat, p))
 }
+##################################################################################################
+
+if (endsWith(opt$input, ".vcf") || endsWith(opt$input, ".vcf.gz")) {
+  INDELS <- read.table(
+    pipe(paste0("bcftools view -v indels ", opt$input, " | bcftools query -f'%CHROM\t%POS\t%REF\t%ALT\n'")),
+    sep = "\t",
+    header = F,
+    stringsAsFactors = F)
+} else {
+  INDELS <- read.table(opt$input, sep = "\t", header = T, stringsAsFactors = F)
+}
+
+
+pdf(file=paste0(opt$output, ".pdf"), width = 16, height = 6)
+out <- indelsClassification(mat=INDELS, subtitle=T, annotation=opt$anno)
+while (!is.null(dev.list())) g<-dev.off()
+write.csv(file=paste0(opt$output, ".csv"), out[[1]], row.names=F, quote=F)
