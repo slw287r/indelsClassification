@@ -86,3 +86,29 @@ Bugs, comments and improvements can be send to *nadeu@clinic.cat*. They will be 
 ### Acknowledgments
 
 I thank Francesco Maura for the time he invested in reviewing the output of this function as well as for his comments and suggestions.
+
+### Wraper `indelsClassification.R`
+
+* Usage
+
+```
+indelsClassification.R -i in.{tsv,vcf} -o out_prefix -a 'annotation string'
+```
+
+* Output
+
+out_prefix.pdf
+
+[<img src="indelsClassification.svg">]()
+
+out_prefix.csv
+
+```
+CHR,POSITION,REF,ALT,context5p,context3p,indelClass,indelSubClass,indelRepeats
+chr1,84399267,CT,C,TC,CTTTTTTCTTAAA,1bp deletion,T:A,6+
+chr2,54115845,T,TA,TT,TAAAAAAATTTAC,1bp insertion,T:A,5+
+chr2,179604224,G,GTGGT,GGAAG,GACTCCTCTTTTTCCTCTGATGGTTTCAGAC,>1bp insertion at repeats,4,0
+chr2,179604225,ACTC,A,AAGA,ACTCCTCTTTTTCCTCTGATGGTTT,>1bp deletion at repeats,3,2
+chr2,197854233,T,TACAC,GAACT,TACACACACACACACATATATATATATATAC,>1bp insertion at repeats,4,3
+chr2,225984685,T,TC,TT,TCCAAGTAGACTC,1bp insertion,C:G,2
+```
